@@ -1,0 +1,391 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Browse - TRACE Web</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+      :root {
+        --trace-primary: #2c3e50;
+        --trace-secondary: #3498db;
+        --trace-accent: #e74c3c;
+      }
+      
+      body {
+        background: #f8f9fa;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      }
+      
+      .navbar {
+        background: linear-gradient(45deg, var(--trace-primary), var(--trace-secondary));
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+      
+      .navbar-brand {
+        font-weight: 700;
+        font-size: 1.5rem;
+      }
+      
+      .card {
+        border: none;
+        border-radius: 15px;
+        box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
+        transition: transform 0.3s ease;
+      }
+      
+      .card:hover {
+        transform: translateY(-2px);
+      }
+      
+      .partition-item {
+        cursor: pointer;
+        transition: all 0.3s ease;
+        border-radius: 10px;
+        padding: 1rem;
+        margin-bottom: 0.5rem;
+        border: 2px solid transparent;
+      }
+      
+      .partition-item:hover {
+        background: #e3f2fd;
+        border-color: var(--trace-secondary);
+        transform: translateX(5px);
+      }
+      
+      .partition-item.active {
+        background: var(--trace-secondary);
+        color: white;
+      }
+      
+      .file-row {
+        cursor: pointer;
+        transition: all 0.3s ease;
+        border-radius: 8px;
+      }
+      
+      .file-row:hover {
+        background: #f8f9ff;
+        transform: translateX(5px);
+      }
+      
+      .file-icon {
+        width: 24px;
+        height: 24px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 6px;
+        margin-right: 0.5rem;
+      }
+      
+      .file-icon.folder {
+        background: #ffc107;
+        color: white;
+      }
+      
+      .file-icon.text {
+        background: #28a745;
+        color: white;
+      }
+      
+      .file-icon.image {
+        background: #dc3545;
+        color: white;
+      }
+      
+      .file-icon.archive {
+        background: #6f42c1;
+        color: white;
+      }
+      
+      .file-icon.executable {
+        background: #fd7e14;
+        color: white;
+      }
+      
+      .file-icon.default {
+        background: #6c757d;
+        color: white;
+      }
+      
+      .breadcrumb {
+        background: white;
+        border-radius: 10px;
+        padding: 0.75rem 1rem;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+      }
+      
+      .search-box {
+        border-radius: 25px;
+        border: 2px solid #dee2e6;
+        padding: 0.5rem 1rem;
+        transition: all 0.3s ease;
+      }
+      
+      .search-box:focus {
+        border-color: var(--trace-secondary);
+        box-shadow: 0 0 0 0.2rem rgba(52, 152, 219, 0.25);
+      }
+      
+      .btn-primary {
+        background: linear-gradient(45deg, var(--trace-primary), var(--trace-secondary));
+        border: none;
+        border-radius: 25px;
+        padding: 0.5rem 1.5rem;
+        font-weight: 600;
+      }
+      
+      .loading {
+        text-align: center;
+        padding: 2rem;
+        color: #6c757d;
+      }
+      
+      .spinner-border-sm {
+        width: 1rem;
+        height: 1rem;
+      }
+    </style>
+  </head>
+  <body>
+    <nav class="navbar navbar-dark">
+      <div class="container-fluid">
+        <a class="navbar-brand" href="/">
+          <i class="bi bi-shield-check me-2"></i>TRACE Web
+        </a>
+        <div class="d-flex">
+          <form class="d-flex" method="get" action="/search">
+            <input type="hidden" name="token" value="{{ token }}">
+            <input class="form-control search-box me-2" name="q" placeholder="Search files..." style="width: 300px;">
+            <button class="btn btn-outline-light" type="submit">
+              <i class="bi bi-search"></i>
+            </button>
+          </form>
+          <a href="/carve/{{ token }}" class="btn btn-outline-light ms-2">
+            <i class="bi bi-tools me-1"></i>Carve Files
+          </a>
+        </div>
+      </div>
+    </nav>
+
+    <div class="container-fluid py-4">
+      <div class="row">
+        <div class="col-md-3">
+          <div class="card">
+            <div class="card-header bg-primary text-white">
+              <h5 class="mb-0">
+                <i class="bi bi-hdd-stack me-2"></i>Partitions
+              </h5>
+            </div>
+            <div class="card-body p-0">
+              <div id="partitions" class="p-3">
+                {% if partitions %}
+                  {% for addr, desc, start, length in partitions %}
+                    <div class="partition-item" data-start="{{ start }}">
+                      <div class="d-flex align-items-center">
+                        <i class="bi bi-hdd me-2"></i>
+                        <div>
+                          <strong>{{ desc }}</strong><br>
+                          <small class="text-muted">Start: {{ start }} | Length: {{ length }}</small>
+                        </div>
+                      </div>
+                    </div>
+                  {% endfor %}
+                {% else %}
+                  <div class="text-center text-muted py-3">
+                    <i class="bi bi-exclamation-triangle display-6"></i>
+                    <p class="mt-2">No partitions detected</p>
+                    <small>Try offset 0</small>
+                  </div>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="col-md-9">
+          <div class="card">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+              <h5 class="mb-0">
+                <i class="bi bi-folder2-open me-2"></i>Directory Contents
+              </h5>
+              <div class="breadcrumb mb-0" id="breadcrumb">
+                <span class="breadcrumb-item active">Root</span>
+              </div>
+            </div>
+            <div class="card-body p-0">
+              <div class="table-responsive">
+                <table class="table table-hover mb-0" id="listing">
+                  <thead class="table-light">
+                    <tr>
+                      <th><i class="bi bi-file-earmark me-1"></i>Name</th>
+                      <th><i class="bi bi-tag me-1"></i>Type</th>
+                      <th><i class="bi bi-hdd me-1"></i>Size</th>
+                      <th><i class="bi bi-calendar-plus me-1"></i>Created</th>
+                      <th><i class="bi bi-calendar-check me-1"></i>Modified</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td colspan="5" class="loading">
+                        <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                        Loading directory contents...
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const token = "{{ token }}";
+      let currentOffset = 0;
+      let currentPath = ['Root'];
+
+      function getFileIcon(fileName, isDirectory) {
+        if (isDirectory) return 'folder';
+        
+        const ext = fileName.split('.').pop().toLowerCase();
+        const textExts = ['txt', 'log', 'cfg', 'ini', 'conf', 'xml', 'json', 'csv', 'md'];
+        const imageExts = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg', 'ico'];
+        const archiveExts = ['zip', 'rar', '7z', 'tar', 'gz', 'bz2'];
+        const execExts = ['exe', 'msi', 'deb', 'rpm', 'app'];
+        
+        if (textExts.includes(ext)) return 'text';
+        if (imageExts.includes(ext)) return 'image';
+        if (archiveExts.includes(ext)) return 'archive';
+        if (execExts.includes(ext)) return 'executable';
+        return 'default';
+      }
+
+      function getFileIconClass(iconType) {
+        const icons = {
+          folder: 'bi-folder-fill',
+          text: 'bi-file-text',
+          image: 'bi-file-image',
+          archive: 'bi-file-zip',
+          executable: 'bi-file-earmark-binary',
+          default: 'bi-file-earmark'
+        };
+        return icons[iconType] || icons.default;
+      }
+
+      function updateBreadcrumb() {
+        const breadcrumb = document.getElementById('breadcrumb');
+        breadcrumb.innerHTML = currentPath.map((part, index) => 
+          `<span class="breadcrumb-item ${index === currentPath.length - 1 ? 'active' : ''}">${part}</span>`
+        ).join('');
+      }
+
+      function fetchList(offset, inode=null) {
+        const tbody = document.querySelector('#listing tbody');
+        tbody.innerHTML = '<tr><td colspan="5" class="loading"><div class="spinner-border spinner-border-sm me-2" role="status"></div>Loading...</td></tr>';
+        
+        const url = new URL(window.location.origin + '/api/list');
+        url.searchParams.set('token', token);
+        url.searchParams.set('start_offset', String(offset));
+        if (inode !== null) url.searchParams.set('inode', String(inode));
+        
+        fetch(url)
+          .then(r => r.json())
+          .then(data => {
+            tbody.innerHTML = '';
+            if (data.entries.length === 0) {
+              tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4"><i class="bi bi-folder-x display-6"></i><br>Empty directory</td></tr>';
+              return;
+            }
+            
+            data.entries.forEach(entry => {
+              const tr = document.createElement('tr');
+              tr.className = 'file-row';
+              tr.dataset.inode = entry.inode_number ?? '';
+              tr.dataset.isDir = entry.is_directory ? '1' : '0';
+              tr.dataset.name = entry.name;
+              
+              const iconType = getFileIcon(entry.name, entry.is_directory);
+              const iconClass = getFileIconClass(iconType);
+              
+              tr.innerHTML = `
+                <td>
+                  <div class="d-flex align-items-center">
+                    <div class="file-icon ${iconType}">
+                      <i class="bi ${iconClass}"></i>
+                    </div>
+                    <strong>${entry.name}</strong>
+                  </div>
+                </td>
+                <td><span class="badge bg-${entry.is_directory ? 'primary' : 'secondary'}">${entry.is_directory ? 'Directory' : 'File'}</span></td>
+                <td>${entry.size || '0'}</td>
+                <td><small>${entry.created || 'N/A'}</small></td>
+                <td><small>${entry.modified || 'N/A'}</small></td>
+              `;
+              tbody.appendChild(tr);
+            });
+          })
+          .catch(err => {
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center text-danger py-4"><i class="bi bi-exclamation-triangle display-6"></i><br>Error loading directory</td></tr>';
+            console.error('Error:', err);
+          });
+      }
+
+      // Partition click handler
+      document.getElementById('partitions').addEventListener('click', (ev) => {
+        const item = ev.target.closest('.partition-item[data-start]');
+        if (!item) return;
+        
+        // Update active state
+        document.querySelectorAll('.partition-item').forEach(i => i.classList.remove('active'));
+        item.classList.add('active');
+        
+        currentOffset = Number(item.dataset.start);
+        currentPath = ['Root'];
+        updateBreadcrumb();
+        fetchList(currentOffset, null);
+      });
+
+      // File/directory click handler
+      document.getElementById('listing').addEventListener('click', (ev) => {
+        const row = ev.target.closest('.file-row');
+        if (!row) return;
+        
+        const inode = row.dataset.inode ? Number(row.dataset.inode) : null;
+        const isDir = row.dataset.isDir === '1';
+        const name = row.dataset.name;
+        
+        if (isDir) {
+          currentPath.push(name);
+          updateBreadcrumb();
+          fetchList(currentOffset, inode);
+        } else if (inode) {
+          const url = new URL(window.location.origin + '/preview/' + token + '/' + inode);
+          url.searchParams.set('start_offset', String(currentOffset));
+          window.location.href = url.toString();
+        }
+      });
+
+      // Breadcrumb click handler
+      document.getElementById('breadcrumb').addEventListener('click', (ev) => {
+        const item = ev.target.closest('.breadcrumb-item');
+        if (!item || item.classList.contains('active')) return;
+        
+        const index = Array.from(item.parentNode.children).indexOf(item);
+        currentPath = currentPath.slice(0, index + 1);
+        updateBreadcrumb();
+        
+        // Reset to root directory
+        fetchList(currentOffset, null);
+      });
+
+      // Initial load
+      fetchList(0, null);
+    </script>
+  </body>
+</html>
+
+

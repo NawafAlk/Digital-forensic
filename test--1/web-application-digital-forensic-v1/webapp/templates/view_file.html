@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>View File - TRACE Web</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+      :root {
+        --trace-primary: #2c3e50;
+        --trace-secondary: #3498db;
+        --trace-accent: #e74c3c;
+      }
+      
+      body {
+        background: #f8f9fa;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      }
+      
+      .navbar {
+        background: linear-gradient(45deg, var(--trace-primary), var(--trace-secondary));
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+      
+      .navbar-brand {
+        font-weight: 700;
+        font-size: 1.5rem;
+      }
+      
+      .file-header {
+        background: white;
+        border-radius: 15px;
+        box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+      }
+      
+      .file-content-card {
+        background: white;
+        border-radius: 15px;
+        box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
+        overflow: hidden;
+      }
+      
+      .content-viewer {
+        max-height: 70vh;
+        overflow-y: auto;
+        background: #f8f9fa;
+        border: none;
+        padding: 1.5rem;
+        font-family: 'Courier New', monospace;
+        font-size: 0.9rem;
+        line-height: 1.5;
+      }
+      
+      .hex-content {
+        font-family: 'Courier New', monospace;
+        font-size: 0.85rem;
+        line-height: 1.4;
+        background: #1e1e1e;
+        color: #d4d4d4;
+        padding: 1.5rem;
+        border-radius: 10px;
+        overflow-x: auto;
+      }
+      
+      .hex-line {
+        display: flex;
+        margin-bottom: 0.5rem;
+      }
+      
+      .hex-offset {
+        color: #569cd6;
+        margin-right: 1rem;
+        min-width: 8ch;
+      }
+      
+      .hex-bytes {
+        margin-right: 1rem;
+        min-width: 48ch;
+      }
+      
+      .hex-ascii {
+        color: #ce9178;
+      }
+      
+      .btn-primary {
+        background: linear-gradient(45deg, var(--trace-primary), var(--trace-secondary));
+        border: none;
+        border-radius: 25px;
+        padding: 0.5rem 1.5rem;
+        font-weight: 600;
+      }
+      
+      .btn-outline-secondary {
+        border-radius: 25px;
+        padding: 0.5rem 1.5rem;
+      }
+      
+      .file-info {
+        background: #e3f2fd;
+        border-radius: 10px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+      }
+      
+      .badge {
+        font-size: 0.8rem;
+        padding: 0.5rem 0.75rem;
+        border-radius: 20px;
+      }
+      
+      .copy-btn {
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+        opacity: 0.7;
+        transition: opacity 0.3s ease;
+      }
+      
+      .copy-btn:hover {
+        opacity: 1;
+      }
+      
+      .toolbar {
+        background: #f8f9fa;
+        border-bottom: 1px solid #dee2e6;
+        padding: 1rem;
+        display: flex;
+        justify-content: between;
+        align-items: center;
+        gap: 1rem;
+      }
+      
+      .view-toggle {
+        display: flex;
+        background: white;
+        border-radius: 25px;
+        padding: 0.25rem;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+      
+      .view-toggle .btn {
+        border-radius: 20px;
+        padding: 0.5rem 1rem;
+        border: none;
+        background: transparent;
+        color: #6c757d;
+      }
+      
+      .view-toggle .btn.active {
+        background: var(--trace-secondary);
+        color: white;
+      }
+    </style>
+  </head>
+  <body>
+    <nav class="navbar navbar-dark">
+      <div class="container-fluid">
+        <a class="navbar-brand" href="/">
+          <i class="bi bi-shield-check me-2"></i>TRACE Web
+        </a>
+        <div class="d-flex align-items-center">
+          <span class="text-light me-3">
+            <i class="bi bi-file-earmark me-1"></i>Inode: {{ inode }}
+          </span>
+          <a href="/browse/{{ token }}" class="btn btn-outline-light">
+            <i class="bi bi-arrow-left me-1"></i>Back
+          </a>
+        </div>
+      </div>
+    </nav>
+
+    <div class="container-fluid py-4">
+      <div class="file-header">
+        <div class="row align-items-center">
+          <div class="col-md-8">
+            <h4 class="mb-2">
+              <i class="bi bi-file-earmark-text me-2"></i>File Content Viewer
+            </h4>
+            <div class="file-info">
+              <div class="row">
+                <div class="col-md-3">
+                  <strong>File Size:</strong><br>
+                  <span class="badge bg-info">{{ file_size }} bytes</span>
+                </div>
+                <div class="col-md-3">
+                  <strong>File Type:</strong><br>
+                  {% if is_text %}
+                    <span class="badge bg-success">Text File</span>
+                  {% else %}
+                    <span class="badge bg-warning">Binary File</span>
+                  {% endif %}
+                </div>
+                <div class="col-md-3">
+                  <strong>Inode:</strong><br>
+                  <span class="badge bg-secondary">{{ inode }}</span>
+                </div>
+                <div class="col-md-3">
+                  <strong>Actions:</strong><br>
+                  <a href="/api/file?token={{ token }}&inode={{ inode }}&start_offset={{ request.args.get('start_offset', '0') }}" 
+                     class="btn btn-primary btn-sm">
+                    <i class="bi bi-download me-1"></i>Download
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="file-content-card">
+        <div class="toolbar">
+          <div class="view-toggle">
+            <button class="btn {% if is_text %}active{% endif %}" id="textView">
+              <i class="bi bi-file-text me-1"></i>Text
+            </button>
+            <button class="btn {% if not is_text %}active{% endif %}" id="hexView">
+              <i class="bi bi-file-earmark-code me-1"></i>Hex
+            </button>
+          </div>
+          <div class="ms-auto">
+            <button class="btn btn-outline-secondary btn-sm" id="copyBtn">
+              <i class="bi bi-clipboard me-1"></i>Copy
+            </button>
+          </div>
+        </div>
+        
+        <div class="position-relative">
+          <button class="btn btn-outline-secondary btn-sm copy-btn" id="copyBtnFloat">
+            <i class="bi bi-clipboard"></i>
+          </button>
+          
+          {% if is_text %}
+            <pre class="content-viewer" id="textContent">{{ content }}</pre>
+            <div class="hex-content" id="hexContent" style="display: none;"></div>
+          {% else %}
+            <pre class="content-viewer" id="textContent" style="display: none;"></pre>
+            <div class="hex-content" id="hexContent">{{ content }}</div>
+          {% endif %}
+        </div>
+        
+        {% if not is_text %}
+          <div class="p-3 bg-light border-top">
+            <small class="text-muted">
+              <i class="bi bi-info-circle me-1"></i>
+              Showing first 1000 bytes as hexadecimal. Use Download button for complete file.
+            </small>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <script>
+      const isText = {{ is_text|lower }};
+      const content = `{{ content|e }}`;
+      
+      // View toggle functionality
+      document.getElementById('textView').addEventListener('click', () => {
+        document.getElementById('textView').classList.add('active');
+        document.getElementById('hexView').classList.remove('active');
+        document.getElementById('textContent').style.display = 'block';
+        document.getElementById('hexContent').style.display = 'none';
+      });
+      
+      document.getElementById('hexView').addEventListener('click', () => {
+        document.getElementById('hexView').classList.add('active');
+        document.getElementById('textView').classList.remove('active');
+        document.getElementById('textContent').style.display = 'none';
+        document.getElementById('hexContent').style.display = 'block';
+      });
+      
+      // Copy functionality
+      function copyToClipboard(text) {
+        navigator.clipboard.writeText(text).then(() => {
+          const btn = document.getElementById('copyBtn');
+          const originalText = btn.innerHTML;
+          btn.innerHTML = '<i class="bi bi-check me-1"></i>Copied!';
+          btn.classList.remove('btn-outline-secondary');
+          btn.classList.add('btn-success');
+          setTimeout(() => {
+            btn.innerHTML = originalText;
+            btn.classList.remove('btn-success');
+            btn.classList.add('btn-outline-secondary');
+          }, 2000);
+        });
+      }
+      
+      document.getElementById('copyBtn').addEventListener('click', () => {
+        const activeContent = document.getElementById('textContent').style.display !== 'none' 
+          ? document.getElementById('textContent').textContent 
+          : document.getElementById('hexContent').textContent;
+        copyToClipboard(activeContent);
+      });
+      
+      document.getElementById('copyBtnFloat').addEventListener('click', () => {
+        const activeContent = document.getElementById('textContent').style.display !== 'none' 
+          ? document.getElementById('textContent').textContent 
+          : document.getElementById('hexContent').textContent;
+        copyToClipboard(activeContent);
+      });
+      
+      // Format hex content if it's binary
+      if (!isText) {
+        const hexContent = document.getElementById('hexContent');
+        const hexText = hexContent.textContent;
+        
+        // Convert hex string to formatted display
+        const lines = hexText.match(/.{1,32}/g) || [];
+        const formattedLines = lines.map((line, index) => {
+          const offset = (index * 16).toString(16).padStart(8, '0').toUpperCase();
+          const bytes = line.match(/.{1,2}/g) || [];
+          const hexBytes = bytes.join(' ').padEnd(48);
+          const ascii = bytes.map(byte => {
+            const charCode = parseInt(byte, 16);
+            return charCode >= 32 && charCode <= 126 ? String.fromCharCode(charCode) : '.';
+          }).join('');
+          
+          return `<div class="hex-line">
+            <span class="hex-offset">${offset}:</span>
+            <span class="hex-bytes">${hexBytes}</span>
+            <span class="hex-ascii">${ascii}</span>
+          </div>`;
+        }).join('');
+        
+        hexContent.innerHTML = formattedLines;
+      }
+    </script>
+  </body>
+</html>

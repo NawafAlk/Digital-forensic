@@ -1,0 +1,9 @@
+Flask==3.0.3
+Werkzeug==3.0.3
+Jinja2==3.1.4
+
+# Reuse existing forensic libs from parent requirements if needed:
+# pytsk3, libewf-python
+
+
+

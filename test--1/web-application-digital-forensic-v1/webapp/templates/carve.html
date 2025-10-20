@@ -1,0 +1,531 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>File Carving - TRACE Web</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+      :root {
+        --trace-primary: #2c3e50;
+        --trace-secondary: #3498db;
+        --trace-accent: #e74c3c;
+      }
+      
+      body {
+        background: #f8f9fa;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      }
+      
+      .navbar {
+        background: linear-gradient(45deg, var(--trace-primary), var(--trace-secondary));
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+      
+      .navbar-brand {
+        font-weight: 700;
+        font-size: 1.5rem;
+      }
+      
+      .card {
+        border: none;
+        border-radius: 15px;
+        box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
+        transition: transform 0.3s ease;
+      }
+      
+      .card:hover {
+        transform: translateY(-2px);
+      }
+      
+      .file-type-card {
+        cursor: pointer;
+        transition: all 0.3s ease;
+        border: 2px solid transparent;
+      }
+      
+      .file-type-card:hover {
+        border-color: var(--trace-secondary);
+        transform: translateY(-3px);
+      }
+      
+      .file-type-card.active {
+        border-color: var(--trace-secondary);
+        background: #e3f2fd;
+      }
+      
+      .file-row {
+        cursor: pointer;
+        transition: all 0.3s ease;
+        border-radius: 8px;
+      }
+      
+      .file-row:hover {
+        background: #f8f9ff;
+        transform: translateX(5px);
+      }
+      
+      .file-icon {
+        width: 32px;
+        height: 32px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8px;
+        margin-right: 0.75rem;
+      }
+      
+      .file-icon.image { background: #dc3545; color: white; }
+      .file-icon.document { background: #28a745; color: white; }
+      .file-icon.archive { background: #6f42c1; color: white; }
+      .file-icon.executable { background: #fd7e14; color: white; }
+      .file-icon.media { background: #20c997; color: white; }
+      .file-icon.web { background: #17a2b8; color: white; }
+      .file-icon.data { background: #6c757d; color: white; }
+      .file-icon.text { background: #28a745; color: white; }
+      .file-icon.unknown { background: #6c757d; color: white; }
+      
+      .btn-primary {
+        background: linear-gradient(45deg, var(--trace-primary), var(--trace-secondary));
+        border: none;
+        border-radius: 25px;
+        padding: 0.5rem 1.5rem;
+        font-weight: 600;
+      }
+      
+      .carve-btn {
+        background: linear-gradient(45deg, var(--trace-accent), #ff6b6b);
+        border: none;
+        border-radius: 25px;
+        padding: 0.75rem 2rem;
+        font-weight: 600;
+        color: white;
+      }
+      
+      .stats-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 15px;
+        padding: 1.5rem;
+      }
+      
+      .loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+      }
+      
+      .loading-content {
+        background: white;
+        border-radius: 15px;
+        padding: 2rem;
+        text-align: center;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+      }
+    </style>
+  </head>
+  <body>
+    <nav class="navbar navbar-dark">
+      <div class="container-fluid">
+        <a class="navbar-brand" href="/">
+          <i class="bi bi-shield-check me-2"></i>TRACE Web
+        </a>
+        <div class="d-flex align-items-center">
+          <a href="/browse/{{ token }}" class="btn btn-outline-light me-2">
+            <i class="bi bi-arrow-left me-1"></i>Browse
+          </a>
+          <span class="text-light">
+            <i class="bi bi-tools me-1"></i>File Carving
+          </span>
+        </div>
+      </div>
+    </nav>
+
+    <div class="container-fluid py-4">
+      <div class="row mb-4">
+        <div class="col-md-8">
+          <h2 class="mb-3">
+            <i class="bi bi-tools me-2"></i>File Carving
+          </h2>
+          <p class="text-muted">Recover and analyze files from disk images by type</p>
+        </div>
+        <div class="col-md-4">
+          <div class="stats-card">
+            <h5><i class="bi bi-file-earmark me-2"></i>Carved Files</h5>
+            <h2 id="fileCount">{{ carved_files|length }}</h2>
+            <small>Files recovered</small>
+          </div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col-md-3">
+          <div class="card">
+            <div class="card-header bg-primary text-white">
+              <h5 class="mb-0">
+                <i class="bi bi-funnel me-2"></i>File Types
+              </h5>
+            </div>
+            <div class="card-body p-0">
+              <div class="p-3">
+                <div class="file-type-card p-3 mb-2" data-type="all">
+                  <div class="d-flex align-items-center">
+                    <div class="file-icon unknown">
+                      <i class="bi bi-files"></i>
+                    </div>
+                    <div>
+                      <strong>All Files</strong><br>
+                      <small class="text-muted">Recover all file types</small>
+                    </div>
+                  </div>
+                </div>
+                
+                <div class="file-type-card p-3 mb-2" data-type="images">
+                  <div class="d-flex align-items-center">
+                    <div class="file-icon image">
+                      <i class="bi bi-image"></i>
+                    </div>
+                    <div>
+                      <strong>Images</strong><br>
+                      <small class="text-muted">JPG, PNG, GIF, BMP</small>
+                    </div>
+                  </div>
+                </div>
+                
+                <div class="file-type-card p-3 mb-2" data-type="documents">
+                  <div class="d-flex align-items-center">
+                    <div class="file-icon document">
+                      <i class="bi bi-file-text"></i>
+                    </div>
+                    <div>
+                      <strong>Documents</strong><br>
+                      <small class="text-muted">PDF, DOC, TXT</small>
+                    </div>
+                  </div>
+                </div>
+                
+                <div class="file-type-card p-3 mb-2" data-type="archives">
+                  <div class="d-flex align-items-center">
+                    <div class="file-icon archive">
+                      <i class="bi bi-file-zip"></i>
+                    </div>
+                    <div>
+                      <strong>Archives</strong><br>
+                      <small class="text-muted">ZIP, RAR, 7Z</small>
+                    </div>
+                  </div>
+                </div>
+                
+                <div class="file-type-card p-3 mb-2" data-type="executables">
+                  <div class="d-flex align-items-center">
+                    <div class="file-icon executable">
+                      <i class="bi bi-file-earmark-binary"></i>
+                    </div>
+                    <div>
+                      <strong>Executables</strong><br>
+                      <small class="text-muted">EXE, MSI, DEB</small>
+                    </div>
+                  </div>
+                </div>
+                
+                <div class="file-type-card p-3 mb-2" data-type="media">
+                  <div class="d-flex align-items-center">
+                    <div class="file-icon media">
+                      <i class="bi bi-play-circle"></i>
+                    </div>
+                    <div>
+                      <strong>Media</strong><br>
+                      <small class="text-muted">MP4, MP3, AVI</small>
+                    </div>
+                  </div>
+                </div>
+                
+                <div class="file-type-card p-3 mb-2" data-type="web">
+                  <div class="d-flex align-items-center">
+                    <div class="file-icon web">
+                      <i class="bi bi-globe"></i>
+                    </div>
+                    <div>
+                      <strong>Web Files</strong><br>
+                      <small class="text-muted">HTML, CSS, JS</small>
+                    </div>
+                  </div>
+                </div>
+                
+                <div class="file-type-card p-3 mb-2" data-type="data">
+                  <div class="d-flex align-items-center">
+                    <div class="file-icon data">
+                      <i class="bi bi-database"></i>
+                    </div>
+                    <div>
+                      <strong>Data Files</strong><br>
+                      <small class="text-muted">JSON, XML, CSV</small>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="p-3 border-top">
+                <button class="btn carve-btn w-100" id="carveBtn">
+                  <i class="bi bi-tools me-2"></i>Start Carving
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="col-md-9">
+          <div class="card">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+              <h5 class="mb-0">
+                <i class="bi bi-list-ul me-2"></i>Carved Files
+                <span class="badge bg-primary ms-2" id="resultCount">{{ carved_files|length }}</span>
+              </h5>
+              <div>
+                <button class="btn btn-outline-secondary btn-sm" id="exportBtn">
+                  <i class="bi bi-download me-1"></i>Export All
+                </button>
+              </div>
+            </div>
+            <div class="card-body p-0">
+              <div class="table-responsive">
+                <table class="table table-hover mb-0" id="carvedFilesTable">
+                  <thead class="table-light">
+                    <tr>
+                      <th><i class="bi bi-file-earmark me-1"></i>Name</th>
+                      <th><i class="bi bi-tag me-1"></i>Type</th>
+                      <th><i class="bi bi-hdd me-1"></i>Size</th>
+                      <th><i class="bi bi-calendar-plus me-1"></i>Created</th>
+                      <th><i class="bi bi-calendar-check me-1"></i>Modified</th>
+                      <th><i class="bi bi-gear me-1"></i>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="carvedFilesBody">
+                    {% if carved_files %}
+                      {% for file in carved_files %}
+                        <tr class="file-row" data-inode="{{ file.inode }}">
+                          <td>
+                            <div class="d-flex align-items-center">
+                              <div class="file-icon {{ file.type }}">
+                                {% if file.type == 'image' %}
+                                  <i class="bi bi-image"></i>
+                                {% elif file.type == 'document' %}
+                                  <i class="bi bi-file-text"></i>
+                                {% elif file.type == 'archive' %}
+                                  <i class="bi bi-file-zip"></i>
+                                {% elif file.type == 'executable' %}
+                                  <i class="bi bi-file-earmark-binary"></i>
+                                {% elif file.type == 'media' %}
+                                  <i class="bi bi-play-circle"></i>
+                                {% elif file.type == 'web' %}
+                                  <i class="bi bi-globe"></i>
+                                {% elif file.type == 'data' %}
+                                  <i class="bi bi-database"></i>
+                                {% elif file.type == 'text' %}
+                                  <i class="bi bi-file-text"></i>
+                                {% else %}
+                                  <i class="bi bi-file-earmark"></i>
+                                {% endif %}
+                              </div>
+                              <div>
+                                <strong>{{ file.name }}</strong><br>
+                                <small class="text-muted">{{ file.path }}</small>
+                              </div>
+                            </div>
+                          </td>
+                          <td>
+                            <span class="badge bg-{{ 'success' if file.type == 'image' else 'primary' if file.type == 'document' else 'warning' if file.type == 'archive' else 'danger' if file.type == 'executable' else 'info' }}">
+                              {{ file.description }}
+                            </span>
+                          </td>
+                          <td>{{ file.size }}</td>
+                          <td><small>{{ file.created }}</small></td>
+                          <td><small>{{ file.modified }}</small></td>
+                          <td>
+                            <div class="btn-group btn-group-sm">
+                              <a href="/preview/{{ token }}/{{ file.inode }}" class="btn btn-outline-primary">
+                                <i class="bi bi-eye"></i>
+                              </a>
+                              <a href="/api/file?token={{ token }}&inode={{ file.inode }}" class="btn btn-outline-secondary">
+                                <i class="bi bi-download"></i>
+                              </a>
+                            </div>
+                          </td>
+                        </tr>
+                      {% endfor %}
+                    {% else %}
+                      <tr>
+                        <td colspan="6" class="text-center text-muted py-5">
+                          <i class="bi bi-funnel display-6"></i><br>
+                          <h5 class="mt-3">No files carved yet</h5>
+                          <p>Select a file type and click "Start Carving" to begin</p>
+                        </td>
+                      </tr>
+                    {% endif %}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay" style="display: none;">
+      <div class="loading-content">
+        <div class="spinner-border text-primary mb-3" role="status"></div>
+        <h5>Carving Files...</h5>
+        <p class="text-muted">This may take a few minutes depending on disk size</p>
+      </div>
+    </div>
+
+    <script>
+      const token = "{{ token }}";
+      let selectedFileType = "{{ file_type }}";
+      
+      // Initialize active file type
+      document.querySelectorAll('.file-type-card').forEach(card => {
+        if (card.dataset.type === selectedFileType) {
+          card.classList.add('active');
+        }
+      });
+      
+      // File type selection
+      document.querySelectorAll('.file-type-card').forEach(card => {
+        card.addEventListener('click', () => {
+          document.querySelectorAll('.file-type-card').forEach(c => c.classList.remove('active'));
+          card.classList.add('active');
+          selectedFileType = card.dataset.type;
+        });
+      });
+      
+      // Carve button
+      document.getElementById('carveBtn').addEventListener('click', () => {
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        loadingOverlay.style.display = 'flex';
+        
+        fetch('/api/carve', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            token: token,
+            type: selectedFileType
+          })
+        })
+        .then(response => response.json())
+        .then(data => {
+          loadingOverlay.style.display = 'none';
+          if (data.files) {
+            updateCarvedFilesTable(data.files);
+            document.getElementById('fileCount').textContent = data.files.length;
+            document.getElementById('resultCount').textContent = data.files.length;
+          }
+        })
+        .catch(error => {
+          loadingOverlay.style.display = 'none';
+          console.error('Error:', error);
+          alert('Error during carving: ' + error.message);
+        });
+      });
+      
+      function updateCarvedFilesTable(files) {
+        const tbody = document.getElementById('carvedFilesBody');
+        tbody.innerHTML = '';
+        
+        if (files.length === 0) {
+          tbody.innerHTML = `
+            <tr>
+              <td colspan="6" class="text-center text-muted py-5">
+                <i class="bi bi-search display-6"></i><br>
+                <h5 class="mt-3">No files found</h5>
+                <p>Try selecting a different file type</p>
+              </td>
+            </tr>
+          `;
+          return;
+        }
+        
+        files.forEach(file => {
+          const tr = document.createElement('tr');
+          tr.className = 'file-row';
+          tr.dataset.inode = file.inode;
+          
+          const typeIcon = getTypeIcon(file.type);
+          const typeBadge = getTypeBadge(file.type);
+          
+          tr.innerHTML = `
+            <td>
+              <div class="d-flex align-items-center">
+                <div class="file-icon ${file.type}">
+                  <i class="bi ${typeIcon}"></i>
+                </div>
+                <div>
+                  <strong>${file.name}</strong><br>
+                  <small class="text-muted">${file.path}</small>
+                </div>
+              </div>
+            </td>
+            <td>
+              <span class="badge ${typeBadge}">${file.description}</span>
+            </td>
+            <td>${file.size}</td>
+            <td><small>${file.created}</small></td>
+            <td><small>${file.modified}</small></td>
+            <td>
+              <div class="btn-group btn-group-sm">
+                <a href="/preview/${token}/${file.inode}" class="btn btn-outline-primary">
+                  <i class="bi bi-eye"></i>
+                </a>
+                <a href="/api/file?token=${token}&inode=${file.inode}" class="btn btn-outline-secondary">
+                  <i class="bi bi-download"></i>
+                </a>
+              </div>
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+      }
+      
+      function getTypeIcon(type) {
+        const icons = {
+          image: 'bi-image',
+          document: 'bi-file-text',
+          archive: 'bi-file-zip',
+          executable: 'bi-file-earmark-binary',
+          media: 'bi-play-circle',
+          web: 'bi-globe',
+          data: 'bi-database',
+          text: 'bi-file-text',
+          unknown: 'bi-file-earmark'
+        };
+        return icons[type] || icons.unknown;
+      }
+      
+      function getTypeBadge(type) {
+        const badges = {
+          image: 'bg-success',
+          document: 'bg-primary',
+          archive: 'bg-warning',
+          executable: 'bg-danger',
+          media: 'bg-info',
+          web: 'bg-info',
+          data: 'bg-secondary',
+          text: 'bg-primary',
+          unknown: 'bg-secondary'
+        };
+        return badges[type] || badges.unknown;
+      }
+    </script>
+  </body>
+</html>
